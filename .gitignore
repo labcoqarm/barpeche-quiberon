@@ -1,0 +1,14 @@
+# Fichiers Copernicus téléchargés (environ 100 Mo) et journal : recréés par chaine/v2_run.py
+data/raw/
+data/mise_a_jour.log
+*_tmp.nc
+
+# Atlas sur données fictives et ancien LISEZMOI, remplacés par ce README
+demo/
+LISEZMOI.txt
+
+# Fichiers internes de R, RStudio et Python
+.Rproj.user/
+.Rhistory
+.RData
+__pycache__/

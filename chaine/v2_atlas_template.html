@@ -1,0 +1,417 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bar du bord à Quiberon, atlas __YEAR__</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Public+Sans:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+:root{
+  --ink:#14283b; --ink-soft:#4a6072; --paper:#f7fafb; --card:#ffffff; --line:#d5e2e8;
+  --shoal:#dcedf4; --mark:#c2185b; --mark-soft:#f8dfe9;
+  --display:"Bricolage Grotesque","Trebuchet MS",system-ui,sans-serif;
+  --text:"Public Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{font-family:var(--text);color:var(--ink);background:var(--paper);font-size:15px;line-height:1.45;
+  font-variant-numeric:tabular-nums}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,[tabindex]:focus-visible,canvas:focus-visible{outline:3px solid var(--mark);outline-offset:2px}
+
+.app{display:grid;height:100vh;grid-template-columns:minmax(0,1fr) 380px;grid-template-rows:minmax(0,1fr) auto}
+#map{grid-column:1;grid-row:1;min-height:280px;background:var(--shoal)}
+.panel{grid-column:2;grid-row:1 / span 2;overflow-y:auto;background:var(--card);border-left:1px solid var(--line);
+  padding:18px 20px 28px}
+.cal{grid-column:1;grid-row:2;background:var(--card);border-top:1px solid var(--line);padding:10px 16px 12px}
+
+/* Panneau */
+.brand{display:flex;justify-content:space-between;align-items:baseline;gap:12px;font-size:13px;color:var(--ink-soft)}
+.brand span,.brand button{white-space:nowrap}
+.brand strong{color:var(--ink);font-weight:600}
+.linkbtn{background:none;border:0;padding:0;color:var(--ink);text-decoration:underline;text-underline-offset:3px;font-size:13px}
+.demo{margin:10px 0 0;padding:8px 10px;background:var(--mark-soft);border-left:4px solid var(--mark);font-size:13px}
+.when{margin:16px 0 6px}
+.when .day{font-family:var(--display);font-weight:500;font-size:22px;line-height:1.1}
+.when .hour{font-family:var(--display);font-weight:700;font-size:76px;line-height:.95;letter-spacing:-.02em}
+.when .hour small{font-size:.42em;font-weight:500;margin-left:.12em;letter-spacing:0}
+.nav{display:grid;grid-template-columns:repeat(4,1fr) 1.25fr;gap:5px;margin:10px 0 4px}
+.nav button{border:1px solid var(--line);background:var(--paper);border-radius:6px;padding:7px 4px;min-height:38px;white-space:nowrap;font-size:14px}
+.nav button:hover{border-color:var(--ink-soft)}
+.nav .play{background:var(--ink);color:#fff;border-color:var(--ink)}
+.keys{font-size:12px;color:var(--ink-soft);margin:2px 0 0}
+.mode{display:flex;margin:14px 0 0;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.mode button{flex:1;border:0;background:var(--paper);padding:8px 6px;min-height:38px}
+.mode button[aria-pressed="true"]{background:var(--ink);color:#fff}
+.modehelp{font-size:12.5px;color:var(--ink-soft);margin:6px 0 0}
+
+h2{font-family:var(--display);font-weight:700;font-size:17px;margin:22px 0 8px}
+.cond{display:grid;grid-template-columns:104px 1fr;gap:7px 10px;margin:0}
+.cond dt{color:var(--ink-soft)}
+.cond dd{margin:0}
+.cond dd span{display:block;color:var(--ink-soft);font-size:13px}
+.tidecurve{width:100%;height:54px;display:block;margin-top:4px}
+.note{font-size:12.5px;color:var(--ink-soft);margin:10px 0 0}
+
+.zlist{list-style:none;margin:0;padding:0}
+.zlist li{margin:0 0 4px}
+.zlist button{width:100%;display:grid;grid-template-columns:74px 1fr 34px;gap:8px;align-items:center;text-align:left;
+  background:none;border:1px solid transparent;border-radius:6px;padding:6px 6px}
+.zlist button:hover{background:var(--paper);border-color:var(--line)}
+.zlist .sub{color:var(--ink-soft);font-size:13px}
+.zlist .val{text-align:right;font-weight:600}
+.bar{height:8px;background:var(--shoal);border-radius:4px;overflow:hidden;margin-top:3px}
+.bar i{display:block;height:100%}
+
+.zone{border:2px solid var(--mark);border-radius:8px;padding:12px 14px 14px;margin-top:18px}
+.zone header{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.zone h2{margin:0}
+.zone .sub{color:var(--ink-soft);margin:2px 0 8px}
+.two{display:flex;gap:22px;margin:6px 0 10px}
+.two div b{font-family:var(--display);font-size:30px;line-height:1;display:block}
+.two div span{font-size:13px;color:var(--ink-soft)}
+.fac{display:grid;grid-template-columns:76px 1fr;gap:6px 10px;align-items:center;font-size:14px}
+.fac small{display:block;color:var(--ink-soft);font-size:12.5px}
+.dayprof{display:grid;grid-template-columns:repeat(24,1fr);gap:2px;align-items:end;height:64px;margin:6px 0 2px}
+.dayprof button{border:0;padding:0;border-radius:2px 2px 0 0;min-height:4px}
+.dayprof button.now{outline:2px solid var(--mark);outline-offset:1px}
+.axis24{display:flex;justify-content:space-between;font-size:11.5px;color:var(--ink-soft)}
+.slots{list-style:none;padding:0;margin:4px 0 0}
+.slots button{background:none;border:0;padding:3px 0;text-decoration:underline;text-underline-offset:3px}
+
+/* Calendrier */
+.calhead{display:flex;justify-content:space-between;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:6px}
+.calhead h2{margin:0;font-size:16px}
+.legend{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--ink-soft)}
+.legend i{display:block;width:150px;height:10px;border-radius:5px}
+.legend .pm{width:9px;height:9px;border-radius:50%;background:#fff;border:1.5px solid var(--ink)}
+.calwrap{position:relative;overflow-x:auto}
+#cal{display:block;cursor:crosshair}
+.tip{position:absolute;pointer-events:none;background:var(--ink);color:#fff;font-size:12.5px;padding:4px 7px;border-radius:4px;
+  white-space:nowrap;transform:translate(-50%,-130%);display:none;z-index:5}
+
+.leaflet-container{font-family:var(--text)}
+.leaflet-tooltip{font-family:var(--text);font-size:13px;color:var(--ink)}
+dialog{max-width:640px;border:0;border-radius:10px;padding:22px 24px;color:var(--ink);font-family:var(--text);line-height:1.5}
+dialog::backdrop{background:rgba(20,40,59,.45)}
+dialog h2{margin-top:0;font-size:22px}
+dialog h3{font-family:var(--display);font-size:16px;margin:16px 0 4px}
+dialog p,dialog li{font-size:14.5px;max-width:62ch}
+dialog ul{padding-left:18px;margin:4px 0}
+dialog .close{float:right;border:1px solid var(--line);background:var(--paper);border-radius:6px;padding:6px 10px}
+
+@media (max-width:980px){
+  .app{display:block;height:auto}
+  #map{height:54vh}
+  .panel{border-left:0;border-top:1px solid var(--line)}
+  .when .hour{font-size:60px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
+</style>
+</head>
+<body>
+<div class="app">
+  <div id="map" aria-label="Carte des zones de pêche"></div>
+
+  <aside class="panel">
+    <div class="brand"><span><strong>Bar du bord, Quiberon</strong>, __YEAR__</span>
+      <button class="linkbtn" id="helpBtn">Lire la carte</button></div>
+    <div class="demo" id="demo" hidden>Démonstration : géométrie et données fictives. Les vrais résultats sortent de <code>v2_run.py</code>.</div>
+
+    <div class="when" aria-live="polite">
+      <div class="day" id="day"></div>
+      <div class="hour" id="hour"></div>
+    </div>
+    <div class="nav">
+      <button id="dPrev" aria-label="Jour précédent">‹ jour</button>
+      <button id="hPrev" aria-label="Heure précédente">‹ heure</button>
+      <button id="hNext" aria-label="Heure suivante">heure ›</button>
+      <button id="dNext" aria-label="Jour suivant">jour ›</button>
+      <button id="play" class="play">Lecture</button>
+    </div>
+    <p class="keys">Clavier : flèches gauche et droite pour l'heure, haut et bas pour le jour, espace pour la lecture.</p>
+
+    <div class="mode" role="group" aria-label="Valeur affichée">
+      <button id="mS" aria-pressed="true">Indice</button>
+      <button id="mP" aria-pressed="false">Chances</button>
+    </div>
+    <p class="modehelp" id="modehelp"></p>
+
+    <section id="zoneBox"></section>
+
+    <h2 id="topTitle">Les cinq meilleures zones à cette heure</h2>
+    <ol class="zlist" id="top"></ol>
+
+    <h2>Conditions à cette heure</h2>
+    <dl class="cond">
+      <dt>Marée</dt><dd id="cTide"></dd>
+      <dt>Lumière</dt><dd id="cLight"></dd>
+      <dt>Vent habituel</dt><dd id="cWind"></dd>
+      <dt>Houle au large</dt><dd id="cWave"></dd>
+      <dt>Eau</dt><dd id="cSst"></dd>
+    </dl>
+    <p class="note" id="condNote"></p>
+
+  </aside>
+
+  <section class="cal">
+    <div class="calhead">
+      <h2 id="calTitle"></h2>
+      <div class="legend"><span id="lgLo"></span><i id="lgBar"></i><span id="lgHi"></span>
+        <span class="pm" aria-hidden="true"></span><span>pleine mer</span></div>
+    </div>
+    <div class="calwrap"><canvas id="cal" tabindex="0" aria-label="Calendrier, une colonne par jour, une ligne par heure"></canvas>
+      <div class="tip" id="tip"></div></div>
+  </section>
+</div>
+
+<dialog id="help">
+  <button class="close" id="helpClose">Fermer</button>
+  <h2>Comment lire la carte</h2>
+  <p>Chaque zone colorée est un morceau de la bande de mer de 120 m au pied de la côte rocheuse (plages et ports exclus), à portée de lancer. La couleur dit si l'heure affichée lui est favorable pour le bar.</p>
+  <h3>Ce qui est calculé pour __YEAR__</h3>
+  <p>La marée, les courants de marée et la lumière sont prévisibles un an à l'avance. Ils sont calculés pour chaque heure de la fenêtre.</p>
+  <h3>Ce qui est tiré du passé</h3>
+  <p>Le vent, la houle et la température de l'eau ne se prévoient pas à cette échéance. Pour chaque heure, la carte rejoue la météo observée à la même heure, à trois jours près, sur <span id="hYears"></span> : environ <span id="hN"></span> tirages par heure.</p>
+  <ul>
+    <li><strong>Indice</strong> : note moyenne de la zone sur ces tirages, de 0 à 100.</li>
+    <li><strong>Chances</strong> : part des tirages où la zone finit dans le meilleur cinquième de toutes les zones et heures.</li>
+  </ul>
+  <h3>Les quatre facteurs</h3>
+  <ul>
+    <li><strong>Agitation</strong> : ressac de houle ou clapot d'un vent qui porte vers la zone. Trop de mer fait chuter la note.</li>
+    <li><strong>Courant</strong> : vitesse du courant de marée près de la zone.</li>
+    <li><strong>Lumière</strong> : aube et crépuscule au plus haut, nuit ensuite ; le plein jour ne remonte que si l'eau est agitée.</li>
+    <li><strong>Eau</strong> : température de surface, pénalisée au-dessus de 19,5 °C.</li>
+  </ul>
+  <h3>Limites à garder en tête</h3>
+  <ul>
+    <li>Les poids des facteurs viennent d'une lecture d'articles et d'études, pas de prises réelles. La carte classe des conditions, elle ne prédit pas des poissons.</li>
+    <li>Houle et courants viennent d'un modèle à mailles de 2 à 3 km : deux zones voisines partagent souvent la même maille, seule leur orientation les distingue.</li>
+    <li>Hauteurs de marée données par rapport au niveau moyen, sans la surcote due au vent et à la pression.</li>
+    <li>Le jour J, une prévision météo à trois jours vaut mieux que cette carte pour le vent et la houle.</li>
+  </ul>
+  <h3>Règles de pêche</h3>
+  <p>En 2026, au sud du 48<sup>e</sup> parallèle : deux bars par pêcheur et par jour, 42 cm minimum. Les règles __YEAR__ sont à vérifier avant de sortir.</p>
+  <h3>Sources</h3>
+  <p id="hSrc"></p>
+</dialog>
+
+<script id="payload" type="application/json">__DATA__</script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+(function(){
+"use strict";
+var D = JSON.parse(document.getElementById("payload").textContent);
+function b64(s){var b=atob(s),a=new Uint8Array(b.length);for(var i=0;i<b.length;i++)a[i]=b.charCodeAt(i);return a;}
+var S=b64(D.S), P=b64(D.P), COMP=b64(D.COMP), HSL=b64(D.HSL), CUR=b64(D.CUR);
+var H=D.hours.length, Z=D.zones.features.length, NDAY=H/24;
+var st={h:0, mode:"S", zone:null, playing:null};
+var fr1=function(x){return x==null?"n. d.":x.toLocaleString("fr-FR",{maximumFractionDigits:1,minimumFractionDigits:1});};
+var JOURS=["dimanche","lundi","mardi","mercredi","jeudi","vendredi","samedi"];
+var MOIS=["janvier","février","mars","avril","mai","juin","juillet","août","septembre","octobre","novembre","décembre"];
+function parts(h){var t=D.hours[h].t;return {y:+t.slice(0,4),m:+t.slice(5,7),d:+t.slice(8,10),hh:+t.slice(11,13),key:t.slice(0,10)};}
+function dayName(h,short){var p=parts(h),wd=new Date(Date.UTC(p.y,p.m-1,p.d)).getUTCDay();
+  return short?(JOURS[wd].slice(0,3)+". "+p.d+" "+(MOIS[p.m-1].length>4?MOIS[p.m-1].slice(0,4)+".":MOIS[p.m-1])):(JOURS[wd]+" "+p.d+" "+MOIS[p.m-1]);}
+function $(id){return document.getElementById(id);}
+function el(tag,cls,txt){var e=document.createElement(tag);if(cls)e.className=cls;if(txt!=null)e.textContent=txt;return e;}
+
+/* Couleurs : clair = faible, sombre = fort ; luminosité monotone, lisible sans distinguer le rouge du vert */
+var STOPS=[[243,240,220],[184,221,176],[93,183,177],[44,110,158],[59,31,110]];
+function ramp(t){t=Math.max(0,Math.min(1,t));var x=t*(STOPS.length-1),i=Math.min(STOPS.length-2,Math.floor(x)),f=x-i,a=STOPS[i],b=STOPS[i+1];
+  return "rgb("+Math.round(a[0]+(b[0]-a[0])*f)+","+Math.round(a[1]+(b[1]-a[1])*f)+","+Math.round(a[2]+(b[2]-a[2])*f)+")";}
+function range(){return st.mode==="S"?[D.meta.s_lo,D.meta.s_hi]:[0,Math.max(40,D.meta.p_hi)];}
+function val(h,z){return (st.mode==="S"?S:P)[h*Z+z];}
+function col(v){var r=range();return ramp((v-r[0])/(r[1]-r[0]));}
+function unit(v){return st.mode==="S"?String(v):v+" %";}
+
+/* Carte */
+var map=L.map("map",{preferCanvas:true,zoomSnap:.25});
+var bases={
+  "Plan clair":L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",{maxZoom:19,attribution:"&copy; OpenStreetMap, &copy; CARTO"}),
+  "Photo aérienne":L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",{maxZoom:19,attribution:"Esri, Maxar"}),
+  "OpenStreetMap":L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"&copy; OpenStreetMap"})
+};
+bases["Plan clair"].addTo(map);
+L.control.layers(bases,null,{position:"topright"}).addTo(map);
+L.control.scale({imperial:false}).addTo(map);
+var layers=[];
+var zl=L.geoJSON(D.zones,{
+  style:function(f){return zstyle(f.properties.id);},
+  onEachFeature:function(f,l){layers[f.properties.id]=l;
+    l.bindTooltip(function(){var z=f.properties.id;return f.properties.name+" : "+(st.mode==="S"?"indice ":"chances ")+unit(val(st.h,z));},{sticky:true});
+    l.on("click",function(){selectZone(f.properties.id,false);});}
+}).addTo(map);
+map.fitBounds(zl.getBounds().pad(.12));
+function zstyle(z){var sel=st.zone===z;return {fillColor:col(val(st.h,z)),fillOpacity:.88,color:sel?"#c2185b":"#14283b",weight:sel?3.5:.7,opacity:sel?1:.55};}
+function paintMap(){for(var z=0;z<Z;z++){if(layers[z])layers[z].setStyle(zstyle(z));} if(st.zone!=null&&layers[st.zone])layers[st.zone].bringToFront();}
+
+/* Texte des conditions */
+function tideText(h){
+  var T=D.tide,now=D.hours[h].t,best=null,bd=1e9;
+  var tn=Date.parse(now+":00Z");
+  T.events.forEach(function(e){var d=(Date.parse(e.local+":00Z")-tn)/36e5;if(Math.abs(d)<Math.abs(bd)){bd=d;best=e;}});
+  var rising=T.rate[h]>0,main;
+  if(best&&Math.abs(bd)<=.5){main="Étale de "+(best.kind==="PM"?"pleine mer":"basse mer");}
+  else{var dp=T.h_from_pm[h],n=Math.round(Math.abs(dp));
+    main=(rising?"Montante":"Descendante")+", "+n+" h "+(dp<0?"avant":"après")+" la pleine mer";}
+  var eta=T.eta[h];
+  return [main,"coefficient estimé "+Math.round(T.coeff[h])+", niveau "+(eta>=0?"+":"−")+fr1(Math.abs(eta))+" m autour du niveau moyen"];
+}
+function lightText(h){var e=D.hours[h].sun,p=parts(h),s=D.sun[p.key]||["",""],name;
+  if(e<-12)name="Nuit noire";else if(e<-6)name="Nuit, lueur à l'horizon";else if(e<0)name=(p.hh<12?"Aube":"Crépuscule");
+  else if(e<6)name="Soleil rasant";else if(e<25)name="Soleil bas";else name="Plein jour";
+  return [name,"lever "+s[0]+", coucher "+s[1]];}
+function tideCurve(h){
+  var d0=Math.floor(h/24)*24,w=300,ht=54,max=0;
+  for(var i=0;i<H;i++)max=Math.max(max,Math.abs(D.tide.eta[i]));
+  var y=function(v){return ht/2-(v/max)*(ht/2-5);},x=function(i){return 4+(w-8)*i/23;},p="";
+  for(var k=0;k<24;k++)p+=(k?"L":"M")+x(k).toFixed(1)+" "+y(D.tide.eta[d0+k]).toFixed(1);
+  var k0=h-d0;
+  return '<svg class="tidecurve" viewBox="0 0 '+w+' '+ht+'" preserveAspectRatio="none" role="img" aria-label="Courbe de marée de la journée">'+
+    '<line x1="0" x2="'+w+'" y1="'+ht/2+'" y2="'+ht/2+'" stroke="#d5e2e8"/>'+
+    '<path d="'+p+'" fill="none" stroke="#14283b" stroke-width="1.6" vector-effect="non-scaling-stroke"/>'+
+    '<line x1="'+x(k0)+'" x2="'+x(k0)+'" y1="2" y2="'+(ht-2)+'" stroke="#c2185b" stroke-width="1.5" vector-effect="non-scaling-stroke"/>'+
+    '<circle cx="'+x(k0)+'" cy="'+y(D.tide.eta[h])+'" r="3.5" fill="#c2185b"/></svg>';
+}
+function dd(id,main,sub,extra){var n=$(id);n.textContent=main;if(sub){n.appendChild(el("span",null,sub));}if(extra){var d=document.createElement("div");d.innerHTML=extra;n.appendChild(d);}}
+
+/* Panneau */
+function renderPanel(){
+  var h=st.h,p=parts(h),w=D.hours[h];
+  $("day").textContent=dayName(h,false);
+  $("hour").innerHTML=p.hh+"<small>h</small>";
+  var t=tideText(h);dd("cTide",t[0],t[1],tideCurve(h));
+  var l=lightText(h);dd("cLight",l[0],l[1]);
+  dd("cWind",w.wind==null?"n. d.":w.wind_dir+", "+fr1(w.wind)+" m/s","direction dominante dans "+Math.round(w.wind_share*100)+" % des tirages");
+  dd("cWave",fr1(w.hs)+" m",w.tp==null?"":"période "+fr1(w.tp)+" s");
+  dd("cSst",fr1(w.sst)+" °C","");
+  // meilleures zones
+  var idx=[];for(var z=0;z<Z;z++)idx.push(z);
+  idx.sort(function(a,b){return val(h,b)-val(h,a);});
+  var top=$("top");top.textContent="";
+  idx.slice(0,5).forEach(function(z){var f=D.zones.features[z].properties,v=val(h,z),li=el("li"),b=el("button");
+    b.setAttribute("aria-label",f.name+", "+unit(v));
+    b.appendChild(el("span",null,f.name));
+    var mid=el("span");mid.appendChild(el("span","sub","face "+f.facing+", "+f.exposure));
+    var bar=el("div","bar"),fill=el("i");fill.style.width=(st.mode==="S"?v:Math.min(100,v))+"%";fill.style.background=col(v);bar.appendChild(fill);mid.appendChild(bar);
+    b.appendChild(mid);b.appendChild(el("span","val",unit(v)));
+    b.onclick=function(){selectZone(z,true);};li.appendChild(b);top.appendChild(li);});
+  renderZone();
+}
+function renderZone(){
+  var box=$("zoneBox");box.textContent="";
+  if(st.zone==null){$("calTitle").textContent="Meilleure zone de chaque heure, du "+dayName(0,true)+" au "+dayName(H-1,true);return;}
+  var z=st.zone,h=st.h,f=D.zones.features[z].properties,d0=Math.floor(h/24)*24;
+  $("calTitle").textContent=f.name+", heure par heure";
+  var card=el("div","zone"),head=el("header");
+  head.appendChild(el("h2",null,f.name));
+  var x=el("button","linkbtn","Fermer");x.onclick=function(){selectZone(null,false);};head.appendChild(x);
+  card.appendChild(head);
+  card.appendChild(el("p","sub","Face "+f.facing+", "+f.exposure+". Surface "+(f.area_m2/10000).toLocaleString("fr-FR",{maximumFractionDigits:1})+" ha."));
+  var two=el("div","two");
+  [["S","indice"],["P","chances"]].forEach(function(m){var d=el("div"),v=(m[0]==="S"?S:P)[h*Z+z];
+    d.appendChild(el("b",null,m[0]==="S"?String(v):v+" %"));d.appendChild(el("span",null,m[1]));two.appendChild(d);});
+  card.appendChild(two);
+  var fac=el("div","fac"),names=["Agitation","Courant","Lumière","Eau"];
+  var raw=["houle locale d'environ "+fr1(HSL[h*Z+z]/50)+" m",(D.meta.current_proxy?"vitesse de la marée":"courant d'environ "+fr1(CUR[h*Z+z]/100)+" m/s"),"",""];
+  names.forEach(function(n,i){var v=COMP[(h*Z+z)*4+i];fac.appendChild(el("span",null,n));
+    var c=el("div"),bar=el("div","bar"),fill=el("i");fill.style.width=v+"%";fill.style.background="#14283b";bar.appendChild(fill);c.appendChild(bar);
+    if(raw[i])c.appendChild(el("small",null,raw[i]));fac.appendChild(c);});
+  card.appendChild(fac);
+  card.appendChild(el("p","note","Cette zone le "+dayName(h,false)+" :"));
+  var prof=el("div","dayprof"),r=range();
+  for(var k=0;k<24;k++){(function(k){var v=val(d0+k,z),b=el("button",d0+k===h?"now":"");
+    b.style.height=Math.max(6,100*(v-r[0])/(r[1]-r[0]))+"%";b.style.background=col(v);
+    b.title=k+" h : "+unit(v);b.setAttribute("aria-label",k+" heures, "+unit(v));b.onclick=function(){setHour(d0+k);};prof.appendChild(b);})(k);}
+  card.appendChild(prof);
+  var ax=el("div","axis24");["0 h","6 h","12 h","18 h","23 h"].forEach(function(s){ax.appendChild(el("span",null,s));});card.appendChild(ax);
+  // meilleurs créneaux de la zone
+  var order=[];for(var i=0;i<H;i++)order.push(i);order.sort(function(a,b){return S[b*Z+z]-S[a*Z+z];});
+  var pick=[];for(var j=0;j<order.length&&pick.length<3;j++){var c=order[j];if(pick.every(function(q){return Math.abs(q-c)>=12;}))pick.push(c);}
+  card.appendChild(el("p","note","Ses trois meilleurs créneaux de la période :"));
+  var ul=el("ul","slots");pick.forEach(function(c){var li=el("li"),b=el("button",null,dayName(c,false)+", "+parts(c).hh+" h (indice "+S[c*Z+z]+")");
+    b.onclick=function(){setHour(c);};li.appendChild(b);ul.appendChild(li);});
+  card.appendChild(ul);box.appendChild(card);
+}
+
+/* Calendrier */
+var cv=$("cal"),ctx=cv.getContext("2d"),geo={};
+function calValue(h){if(st.zone!=null)return val(h,st.zone);var m=0;for(var z=0;z<Z;z++){var v=val(h,z);if(v>m)m=v;}return m;}
+function drawCal(){
+  var wrap=cv.parentNode,W=Math.max(wrap.clientWidth,620),left=30,top=30,ch=window.innerWidth<981?6:7;
+  var cw=(W-left-2)/NDAY,Ht=top+24*ch+4,dpr=window.devicePixelRatio||1;
+  cv.style.width=W+"px";cv.style.height=Ht+"px";cv.width=Math.round(W*dpr);cv.height=Math.round(Ht*dpr);
+  ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,W,Ht);
+  geo={left:left,top:top,cw:cw,ch:ch};
+  ctx.font="11.5px 'Public Sans',system-ui,sans-serif";ctx.textBaseline="middle";
+  for(var d=0;d<NDAY;d++){
+    var p=parts(d*24),wd=new Date(Date.UTC(p.y,p.m-1,p.d)).getUTCDay();
+    ctx.fillStyle=(wd===0||wd===6)?"#14283b":"#4a6072";ctx.textAlign="center";
+    ctx.fillText(JOURS[wd].charAt(0).toUpperCase(),left+cw*(d+.5),8);
+    ctx.fillText(String(p.d),left+cw*(d+.5),21);
+    for(var k=0;k<24;k++){ctx.fillStyle=col(calValue(d*24+k));ctx.fillRect(left+cw*d+.5,top+ch*k,cw-1,ch-.6);}
+  }
+  ctx.textAlign="right";ctx.fillStyle="#4a6072";
+  [0,6,12,18].forEach(function(k){ctx.fillText(k+" h",left-5,top+ch*(k+.5));});
+  // lever et coucher du soleil
+  ctx.strokeStyle="rgba(20,40,59,.55)";ctx.lineWidth=1;ctx.setLineDash([3,2]);
+  [0,1].forEach(function(which){ctx.beginPath();for(var d=0;d<NDAY;d++){var s=D.sun[parts(d*24).key];if(!s)continue;
+    var hm=s[which].split(":"),y=top+ch*(+hm[0]+hm[1]/60);ctx.moveTo(left+cw*d,y);ctx.lineTo(left+cw*(d+1),y);}ctx.stroke();});
+  ctx.setLineDash([]);
+  // pleines mers
+  var t0=Date.parse(D.hours[0].t+":00Z");
+  D.tide.events.forEach(function(e){if(e.kind!=="PM")return;var dh=(Date.parse(e.local+":00Z")-t0)/36e5;if(dh<0||dh>=H)return;
+    var d=Math.floor(dh/24),k=dh-d*24;ctx.beginPath();ctx.arc(left+cw*(d+.5),top+ch*k,2.6,0,6.3);ctx.fillStyle="#fff";ctx.fill();ctx.strokeStyle="#14283b";ctx.lineWidth=1.2;ctx.stroke();});
+  // heure affichée
+  var d=Math.floor(st.h/24),k=st.h%24;ctx.strokeStyle="#c2185b";ctx.lineWidth=2.5;ctx.strokeRect(left+cw*d-.5,top+ch*k-1,cw+1,ch+1.4);
+  ctx.fillStyle="#c2185b";ctx.fillRect(left+cw*d,top-3,cw,2);
+}
+function calHit(ev){var r=cv.getBoundingClientRect(),x=ev.clientX-r.left,y=ev.clientY-r.top;
+  var d=Math.floor((x-geo.left)/geo.cw),k=Math.floor((y-geo.top)/geo.ch);if(d<0||d>=NDAY||k<0||k>23)return null;return {h:d*24+k,x:x,y:y};}
+cv.addEventListener("click",function(ev){var c=calHit(ev);if(c)setHour(c.h);});
+cv.addEventListener("mousemove",function(ev){var c=calHit(ev),tip=$("tip");if(!c){tip.style.display="none";return;}
+  tip.textContent=dayName(c.h,true)+", "+parts(c.h).hh+" h : "+unit(calValue(c.h));tip.style.left=c.x+"px";tip.style.top=c.y+"px";tip.style.display="block";});
+cv.addEventListener("mouseleave",function(){$("tip").style.display="none";});
+
+/* État */
+function legend(){var r=range();$("lgLo").textContent=(st.mode==="S"?"indice ":"chances ")+unit(r[0]);$("lgHi").textContent=unit(r[1]);
+  $("lgBar").style.background="linear-gradient(90deg,"+[0,.25,.5,.75,1].map(ramp).join(",")+")";
+  $("modehelp").textContent=st.mode==="S"?"Indice : note moyenne de la zone sur les années passées, de 0 à 100."
+    :"Chances : part des années passées où la zone se classait dans le meilleur cinquième.";}
+function refresh(){paintMap();renderPanel();drawCal();}
+function setHour(h){st.h=((h%H)+H)%H;refresh();}
+function selectZone(z,pan){st.zone=(z===st.zone&&!pan)?null:z;if(z!=null&&pan&&layers[z])map.panTo(layers[z].getBounds().getCenter());refresh();}
+function setMode(m){st.mode=m;$("mS").setAttribute("aria-pressed",m==="S");$("mP").setAttribute("aria-pressed",m==="P");
+  $("topTitle").textContent="Les cinq meilleures zones à cette heure";legend();refresh();}
+function togglePlay(){if(st.playing){clearInterval(st.playing);st.playing=null;$("play").textContent="Lecture";}
+  else{st.playing=setInterval(function(){setHour(st.h+1);},650);$("play").textContent="Pause";}}
+$("hPrev").onclick=function(){setHour(st.h-1);};$("hNext").onclick=function(){setHour(st.h+1);};
+$("dPrev").onclick=function(){setHour(st.h-24);};$("dNext").onclick=function(){setHour(st.h+24);};
+$("play").onclick=togglePlay;$("mS").onclick=function(){setMode("S");};$("mP").onclick=function(){setMode("P");};
+document.addEventListener("keydown",function(e){if($("help").open)return;var tag=(e.target.tagName||"").toLowerCase();
+  if(e.key==="ArrowLeft"){setHour(st.h-1);e.preventDefault();}else if(e.key==="ArrowRight"){setHour(st.h+1);e.preventDefault();}
+  else if(e.key==="ArrowUp"){setHour(st.h-24);e.preventDefault();}else if(e.key==="ArrowDown"){setHour(st.h+24);e.preventDefault();}
+  else if(e.key===" "&&tag!=="button"){togglePlay();e.preventDefault();}});
+$("helpBtn").onclick=function(){$("help").showModal();};$("helpClose").onclick=function(){$("help").close();};
+window.addEventListener("resize",drawCal);
+
+/* Textes fixes */
+var M=D.meta;
+$("demo").hidden=!M.demo;
+$("hYears").textContent=M.n_years+" années ("+M.years[0]+" à "+M.years[1]+")";
+$("hN").textContent=M.samples_median;
+$("condNote").textContent="Marée et lumière : calculées pour "+M.year+". Vent, houle et eau : valeurs habituelles à cette date, "+M.years[0]+" à "+M.years[1]+".";
+$("hSrc").textContent="Houle : "+M.wave_source+" (Copernicus Marine). Marée et courants : analyse harmonique du modèle IBI 1/36° de Copernicus Marine"
+  +" (M2 "+fr1(M.M2)+" m, S2 "+fr1(M.S2)+" m). Vent : ERA5 (Copernicus Climate). Eau : OSTIA. Côte, plages et ports : OpenStreetMap. Limite communale : geo.api.gouv.fr.";
+// heure de départ : meilleure heure de toute la période
+var bh=0,bv=-1;for(var i=0;i<H;i++){var v=0;for(var z=0;z<Z;z++)v=Math.max(v,S[i*Z+z]);if(v>bv){bv=v;bh=i;}}
+st.h=bh;legend();refresh();
+if(document.fonts&&document.fonts.ready)document.fonts.ready.then(drawCal);
+})();
+</script>
+</body>
+</html>
